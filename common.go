@@ -1,6 +1,16 @@
 package dkcache
 
-import "errors"
+import (
+	"errors"
+	"io"
+)
+
+type RWAtSeekCloser interface {
+	io.ReaderAt
+	io.WriterAt
+	io.Seeker
+	io.Closer
+}
 
 func check(err error) {
 	switch err {

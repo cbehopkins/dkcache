@@ -145,7 +145,7 @@ func stimmer(ref *PerfectFile, cand *CachedFile, start, end, txs int, wg *sync.W
 
 func TestMulti0(t *testing.T) {
 	var ref PerfectFile
-	var dut CachedFile
+	dut := *NewCachedFile(&ref)
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go stimmer(&ref, &dut, 0, 16, 16, &wg)
@@ -153,7 +153,7 @@ func TestMulti0(t *testing.T) {
 }
 func TestMulti1(t *testing.T) {
 	var ref PerfectFile
-	var dut CachedFile
+	dut := *NewCachedFile(&ref)
 	var wg sync.WaitGroup
 	num_stimmers := 2
 	wg.Add(num_stimmers)
@@ -165,7 +165,7 @@ func TestMulti1(t *testing.T) {
 }
 func TestMulti2(t *testing.T) {
 	var ref PerfectFile
-	var dut CachedFile
+	dut := *NewCachedFile(&ref)
 	var wg sync.WaitGroup
 	num_stimmers := 20
 	wg.Add(num_stimmers)
@@ -180,7 +180,7 @@ func TestMulti2(t *testing.T) {
 func TestMulti21(t *testing.T) {
 	// Check for disagreements between Teammates
 	var ref PerfectFile
-	var dut CachedFile
+	dut := *NewCachedFile(&ref)
 	var wg sync.WaitGroup
 	num_stimmers := 20
 	wg.Add(num_stimmers)
