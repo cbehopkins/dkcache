@@ -12,7 +12,7 @@ import (
 // Ir Reads Instantly if it hits
 // It does not error (system memory permitting)
 // It supports concurrent access (for appropriate methods)
-// That is Many procs can access it as it it were a single file
+// That is many procs can access it as if it were a single file
 // We take care of appropriate locking
 type CachedFile struct {
 	// Our rule is that all externall accessable functions must
@@ -23,82 +23,82 @@ type CachedFile struct {
 	loc   int64
 }
 
-func (pf *CachedFile) Grow(desired_size int64) {
-	pf.Lock()
-	defer pf.Unlock()
+func (cf *CachedFile) Grow(desired_size int64) {
+	cf.Lock()
+	defer cf.Unlock()
 
-	pf.grow(desired_size)
+	cf.grow(desired_size)
 }
-func (pf *CachedFile) grow(desired_size int64) {
-	log.Printf("Current Cap is %d, Asked for %d\n", cap(pf.store), desired_size)
+func (cf *CachedFile) grow(desired_size int64) {
+	log.Printf("Current Cap is %d, Asked for %d\n", cap(cf.store), desired_size)
 	// First of all round up to a power of 2
 	desired_size = int64(roundup2(desired_size))
-	if desired_size > int64(cap(pf.store)) {
-		new_store := make([]byte, len(pf.store), desired_size)
-		copy(new_store, pf.store)
-		pf.store = new_store
+	if desired_size > int64(cap(cf.store)) {
+		new_store := make([]byte, len(cf.store), desired_size)
+		copy(new_store, cf.store)
+		cf.store = new_store
 	}
 }
 
-func (pf *CachedFile) Seek(offset int64, whence int) (int64, error) {
-	pf.Lock()
-	defer pf.Unlock()
+func (cf *CachedFile) Seek(offset int64, whence int) (int64, error) {
+	cf.Lock()
+	defer cf.Unlock()
 
-	return pf.seek(offset, whence)
+	return cf.seek(offset, whence)
 }
-func (pf *CachedFile) seek(offset int64, whence int) (int64, error) {
+func (cf *CachedFile) seek(offset int64, whence int) (int64, error) {
 	if whence == io.SeekStart {
-		pf.loc = offset
+		cf.loc = offset
 	} else if whence == io.SeekCurrent {
-		pf.loc = offset + pf.loc
+		cf.loc = offset + cf.loc
 	} else if whence == io.SeekEnd {
-		pf.loc = int64(len(pf.store)) + offset
+		cf.loc = int64(len(cf.store)) + offset
 	} else {
 		return 0, ErrUnknownSeek
 	}
-	return pf.loc, nil
+	return cf.loc, nil
 }
 
-// writeAt relies on a sufficiently sized pf
+// writeAt relies on a sufficiently sized cf
 // call WriteAt if you're not sure the buffer is in a good state
-func (pf *CachedFile) writeAtWk(p []byte, offset int64) (n int, err error) {
-	start_len := int64(len(pf.store))
+func (cf *CachedFile) writeAtWk(p []byte, offset int64) (n int, err error) {
+	start_len := int64(len(cf.store))
 	end_loc := offset + int64(len(p))
-	if end_loc > int64(cap(pf.store)) {
-		end_loc = int64(cap(pf.store))
+	if end_loc > int64(cap(cf.store)) {
+		end_loc = int64(cap(cf.store))
 	}
-	n = copy(pf.store[offset:end_loc], p)
+	n = copy(cf.store[offset:end_loc], p)
 	if end_loc > start_len {
-		pf.store = pf.store[:end_loc]
+		cf.store = cf.store[:end_loc]
 	}
 	return n, nil
 }
-func (pf *CachedFile) WriteAt(p []byte, offset int64) (n int, err error) {
-	pf.Lock()
-	defer pf.Unlock()
-	return pf.writeAt(p, offset)
+func (cf *CachedFile) WriteAt(p []byte, offset int64) (n int, err error) {
+	cf.Lock()
+	defer cf.Unlock()
+	return cf.writeAt(p, offset)
 }
-func (pf *CachedFile) writeAt(p []byte, offset int64) (n int, err error) {
+func (cf *CachedFile) writeAt(p []byte, offset int64) (n int, err error) {
 
-	if pf.store == nil {
-		pf.store = make([]byte, 0, InitialBufferSize)
+	if cf.store == nil {
+		cf.store = make([]byte, 0, InitialBufferSize)
 		//log.Println("Made Array")
-		pf.loc = 0
+		cf.loc = 0
 	}
-	//blen := len(pf.store)
-	bcap := int64(cap(pf.store))
+	//blen := len(cf.store)
+	bcap := int64(cap(cf.store))
 	plen := len(p)
 	final_len := offset + int64(plen)
 
 	if final_len > bcap {
 		log.Println("Growing")
-		pf.grow(final_len)
-		bcap = int64(cap(pf.store))
+		cf.grow(final_len)
+		bcap = int64(cap(cf.store))
 	}
 	remaining := plen
 	for remaining != 0 {
 		//log.Println("Remaining", remaining)
-		nc, err := pf.writeAtWk(p, offset)
+		nc, err := cf.writeAtWk(p, offset)
 		check(err)
 		// reslice p down to the remaining
 		p = p[nc:]
@@ -110,17 +110,17 @@ func (pf *CachedFile) writeAt(p []byte, offset int64) (n int, err error) {
 	return
 }
 
-func (pf *CachedFile) Write(p []byte) (n int, err error) {
-	pf.Lock()
-	n, err = pf.writeAt(p, pf.loc)
-	pf.loc += int64(n)
-	pf.Unlock()
+func (cf *CachedFile) Write(p []byte) (n int, err error) {
+	cf.Lock()
+	n, err = cf.writeAt(p, cf.loc)
+	cf.loc += int64(n)
+	cf.Unlock()
 	return
 }
-func (pf *CachedFile) ReadAt(p []byte, offset int64) (n int, err error) {
-	pf.Lock()
-	if pf.store == nil {
-		pf.Unlock()
+func (cf *CachedFile) ReadAt(p []byte, offset int64) (n int, err error) {
+	cf.Lock()
+	if cf.store == nil {
+		cf.Unlock()
 		return 0, io.EOF
 	}
 	if p == nil {
@@ -128,45 +128,45 @@ func (pf *CachedFile) ReadAt(p []byte, offset int64) (n int, err error) {
 	} else {
 		//log.Printf("It's %d,%d\n", len(p), cap(p))
 	}
-	n, err = pf.readAt(p, offset)
-	pf.Unlock()
+	n, err = cf.readAt(p, offset)
+	cf.Unlock()
 	return
 }
-func (pf *CachedFile) readAt(p []byte, offset int64) (n int, err error) {
+func (cf *CachedFile) readAt(p []byte, offset int64) (n int, err error) {
 	//log.Printf("Reading into: %d,%d\n", len(p), cap(p))
-	blen := int64(len(pf.store))
+	blen := int64(len(cf.store))
 
 	//end_location := offset + int64(len(p))
 	//if end_location > blen {
 	//	end_location = blen
 	//}
 	if offset >= blen {
-		log.Fatal("Asked for beyond end of buffer", offset, blen, cap(pf.store))
+		log.Fatal("Asked for beyond end of buffer", offset, blen, cap(cf.store))
 	}
-	n = copy(p, pf.store[offset:])
+	n = copy(p, cf.store[offset:])
 	if (offset + int64(n)) >= blen {
 		err = io.EOF
 	}
 	return
 }
-func (pf *CachedFile) Read(p []byte) (n int, err error) {
-	if pf.store == nil {
+func (cf *CachedFile) Read(p []byte) (n int, err error) {
+	if cf.store == nil {
 		return 0, io.EOF
 	}
-	pf.Lock()
-	start_location := pf.loc
-	n, err = pf.readAt(p, start_location)
-	pf.loc += int64(n)
-	pf.Unlock()
+	cf.Lock()
+	start_location := cf.loc
+	n, err = cf.readAt(p, start_location)
+	cf.loc += int64(n)
+	cf.Unlock()
 
 	return
 }
-func (pf *CachedFile) Close() (err error) {
+func (cf *CachedFile) Close() (err error) {
 	return nil
 }
-func (pf *CachedFile) Cap() int {
-	return cap(pf.store)
+func (cf *CachedFile) Cap() int {
+	return cap(cf.store)
 }
-func (pf *CachedFile) Len() int {
-	return len(pf.store)
+func (cf *CachedFile) Len() int {
+	return len(cf.store)
 }
