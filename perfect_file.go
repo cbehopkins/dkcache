@@ -158,6 +158,9 @@ func (pf *PerfectFile) Read(p []byte) (n int, err error) {
 
 	return
 }
+func (pf *PerfectFile) Sync() {
+	return
+}
 func (pf *PerfectFile) Close() (err error) {
 	return nil
 }

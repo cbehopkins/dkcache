@@ -17,11 +17,10 @@ type CachedFile struct {
 	f   RWAtSeekCloser
 	loc int64
 }
-
-func NewCachedFile(f RWAtSeekCloser) *CachedFile {
-	itm := new(CachedFile)
-	itm.f = f
-	return itm
+func NewCachedFile (f RWAtSeekCloser) *CachedFile {
+  itm := new(CachedFile)
+  itm.f = f
+  return itm
 }
 func (cf *CachedFile) Seek(offset int64, whence int) (int64, error) {
 	cf.Lock()
@@ -29,13 +28,18 @@ func (cf *CachedFile) Seek(offset int64, whence int) (int64, error) {
 
 	return cf.f.Seek(offset, whence)
 }
+func (cf *CachedFile) Sync () () {
+}
 func (cf *CachedFile) WriteAt(p []byte, offset int64) (n int, err error) {
 	cf.Lock()
 	defer cf.Unlock()
 	return cf.writeAt(p, offset)
 }
-func (cf *CachedFile) writeAt(p []byte, offset int64) (n int, err error) {
 
+func (cf *CachedFile) writeAt(p []byte, offset int64) (n int, err error) {
+  return cf.writeFile(p,offset)
+}
+func (cf *CachedFile) writeFile(p []byte, offset int64) (n int, err error) {
 	remaining := len(p)
 	for remaining != 0 {
 		//log.Println("Remaining", remaining)
@@ -47,7 +51,7 @@ func (cf *CachedFile) writeAt(p []byte, offset int64) (n int, err error) {
 		remaining -= nc
 		n += nc
 		if err != nil {
-			return n, err
+			return n,err
 		}
 	}
 	return
@@ -66,7 +70,70 @@ func (cf *CachedFile) ReadAt(p []byte, offset int64) (n int, err error) {
 	cf.Unlock()
 	return
 }
+
+// A Transaction to a Cache line may not be to the whole line
+// So we need to 
+type Trans struct {
+  ln Line
+  off int
+  len int
+  // A Read request will set this to the slice to modify
+  // A write request will have the data here
+  data []byte
+  // Execute Done once the data are either swallowed or populated
+  wg *sync.WaitGroup
+}
+// Fragment a transaction into lots of little ones
+// 
+func fragmentTx (offset int64, length int) (transaction []Trans) {
+}
+type Line int64
+const (
+  // 16 Bytes in each line
+  LineLength = 16
+)
+func (cf *CachedFile) checkCache (off Line ) bool {
+  // Returns true if this Line is in the cache
+  return false
+}
+// Translate from the Line number into the byte offset
+func (cf *CachedFile) lineNumber (ln Line) (offset int64) {
+
+}
+
 func (cf *CachedFile) readAt(p []byte, offset int64) (n int, err error) {
+  // Read at needs to break the transaction up into individual fragments
+  // Check if any of these match anything in the cache
+  // Then issue the reads as needed
+  // For performance we try and issue a few big reads 
+  // in preference to lots of little ones
+  transactions := fragmentTx(offset, len(p))
+  num_transactions := len(transactions)
+  var wg sync.WaitGroup
+  wg.Add(num_transactions)
+  for tx := range transactions {
+    tmp_trans := Trans{
+                      ln:tx.ln
+                      off:tx.off
+                      len:tx.len
+                      data:p[]
+                      wg:&wg
+                      }
+    if cf.checkCache(tx.ln) {
+      // Retrieve the data from the cache
+      // Not that the cache line may itself not be full
+      // so that may have to do a fetch under the hood
+    } else {
+      // Fetch the data from the disk
+      ln := cf.lineNumber(off)
+      nc, err := cf.readFile()
+      if nc != LineLength
+    }
+  }
+
+  return cf.readFile(p,offset)
+}
+func (cf *CachedFile) readFile(p []byte, offset int64) (n int, err error) {
 	n, err = cf.f.ReadAt(p, offset)
 	return
 }

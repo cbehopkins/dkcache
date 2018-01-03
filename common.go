@@ -10,6 +10,7 @@ type RWAtSeekCloser interface {
 	io.WriterAt
 	io.Seeker
 	io.Closer
+	Sync()
 }
 
 func check(err error) {
